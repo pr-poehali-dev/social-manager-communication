@@ -1,5 +1,7 @@
 import { useState } from "react";
 import Icon from "@/components/ui/icon";
+import AuthScreen from "@/components/social/AuthScreen";
+import CallScreen from "@/components/social/CallScreen";
 
 type Tab = "feed" | "search" | "chats" | "groups" | "notifications" | "profile";
 
@@ -117,6 +119,13 @@ function notifIcon(type: string) {
 }
 
 export default function Index() {
+  // Auth
+  const [authed, setAuthed] = useState(false);
+  const [currentUserName, setCurrentUserName] = useState(mockUser.name);
+
+  // Call
+  const [activeCall, setActiveCall] = useState<{ type: "audio" | "video"; chatId: number } | null>(null);
+
   const [activeTab, setActiveTab] = useState<Tab>("feed");
   const [posts, setPosts] = useState(mockPostsInit);
   const [searchQuery, setSearchQuery] = useState("");
@@ -132,6 +141,11 @@ export default function Index() {
 
   const unreadNotifs = notifications.filter(n => !n.read).length;
   const unreadChats = mockChats.reduce((a, c) => a + c.unread, 0);
+
+  const handleAuth = (name: string) => {
+    setCurrentUserName(name);
+    setAuthed(true);
+  };
 
   const toggleLike = (id: number) => {
     setPosts(posts.map(p =>
@@ -154,7 +168,7 @@ export default function Index() {
     if (!newPostText.trim()) return;
     setPosts([{
       id: Date.now(),
-      user: { name: mockUser.name, username: mockUser.username, avatar: mockUser.avatar, color: "from-violet-500 to-pink-400" },
+      user: { name: currentUserName, username: mockUser.username, avatar: currentUserName.slice(0, 2).toUpperCase(), color: "from-violet-500 to-pink-400" },
       time: "только что",
       text: newPostText,
       image: false,
@@ -185,6 +199,23 @@ export default function Index() {
     { id: "notifications", icon: "Bell", label: "Уведомления", badge: unreadNotifs },
     { id: "profile", icon: "User", label: "Профиль" },
   ];
+
+  // ── Auth gate ──────────────────────────────────────────────────────────────
+  if (!authed) return <AuthScreen onAuth={handleAuth} />;
+
+  // ── Active call overlay ────────────────────────────────────────────────────
+  if (activeCall) {
+    const chat = mockChats.find(c => c.id === activeCall.chatId)!;
+    return (
+      <CallScreen
+        type={activeCall.type}
+        chatName={chat.name}
+        chatAvatar={chat.avatar}
+        chatColor={chat.color}
+        onEnd={() => setActiveCall(null)}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-mesh grain flex">
@@ -217,13 +248,20 @@ export default function Index() {
           <div className="flex items-center gap-3 px-3 py-2 rounded-xl glass border border-white/5">
             <div className="avatar-ring w-8 h-8 shrink-0">
               <div className="w-full h-full rounded-full bg-gradient-to-br from-violet-500 to-pink-400 flex items-center justify-center text-xs font-bold text-white">
-                {mockUser.avatar}
+                {currentUserName.slice(0, 2).toUpperCase()}
               </div>
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-semibold truncate">{mockUser.name}</p>
+              <p className="text-sm font-semibold truncate">{currentUserName}</p>
               <p className="text-xs text-muted-foreground truncate">{mockUser.username}</p>
             </div>
+            <button
+              onClick={() => setAuthed(false)}
+              className="ml-auto text-muted-foreground hover:text-destructive transition-colors shrink-0"
+              title="Выйти"
+            >
+              <Icon name="LogOut" size={14} />
+            </button>
           </div>
         </div>
       </aside>
@@ -430,11 +468,28 @@ export default function Index() {
                     {chat.avatar}
                   </div>
                 </div>
-                <div>
+                <div className="flex-1">
                   <p className="font-semibold text-sm">{chat.name}</p>
                   <p className={`text-xs ${chat.online ? "text-green-400" : "text-muted-foreground"}`}>
                     {chat.online ? "онлайн" : "был(а) недавно"}
                   </p>
+                </div>
+                {/* Call buttons */}
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => setActiveCall({ type: "audio", chatId: chat.id })}
+                    className="w-9 h-9 rounded-xl glass border border-white/10 flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/30 transition-all"
+                    title="Аудиозвонок"
+                  >
+                    <Icon name="Phone" size={16} />
+                  </button>
+                  <button
+                    onClick={() => setActiveCall({ type: "video", chatId: chat.id })}
+                    className="w-9 h-9 rounded-xl glass border border-white/10 flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/30 transition-all"
+                    title="Видеозвонок"
+                  >
+                    <Icon name="Video" size={16} />
+                  </button>
                 </div>
               </div>
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
@@ -567,7 +622,7 @@ export default function Index() {
                 <div className="relative">
                   <div className="avatar-ring w-20 h-20">
                     <div className="w-full h-full rounded-full bg-gradient-to-br from-violet-500 to-pink-400 flex items-center justify-center text-xl font-black text-white animate-float">
-                      {mockUser.avatar}
+                      {currentUserName.slice(0, 2).toUpperCase()}
                     </div>
                   </div>
                   <button className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-primary flex items-center justify-center border-2 border-background hover:scale-110 transition-transform">
@@ -575,7 +630,7 @@ export default function Index() {
                   </button>
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-xl font-black">{mockUser.name}</h3>
+                  <h3 className="text-xl font-black">{currentUserName}</h3>
                   <p className="text-sm text-muted-foreground">{mockUser.username}</p>
                   <p className="text-sm mt-2 text-foreground/80 leading-relaxed">{mockUser.bio}</p>
                 </div>
@@ -598,8 +653,12 @@ export default function Index() {
                 <button className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity">
                   Редактировать
                 </button>
-                <button className="w-10 h-10 rounded-xl glass border border-white/10 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
-                  <Icon name="Upload" size={16} />
+                <button
+                  onClick={() => setAuthed(false)}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl glass border border-white/10 text-sm text-muted-foreground hover:text-destructive hover:border-destructive/30 transition-colors"
+                >
+                  <Icon name="LogOut" size={15} />
+                  Выйти
                 </button>
               </div>
             </div>
